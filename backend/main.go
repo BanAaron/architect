@@ -1,10 +1,10 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"time"
 
 	"github.com/BanAaron/architect/database"
 	"github.com/joho/godotenv"
@@ -29,16 +29,34 @@ func main() {
 	defer database.Disconnect()
 
 	collection := database.GetCollection(architect, keywords)
-	kw := database.NewKeywordDocument("Aaron", []string{"Ford", "BMW", "Audi"})
+	fmt.Printf(collection.Name())
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		_, err := writer.Write([]byte("Hello, World!"))
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+		}
+	})
 
-	_, err = collection.InsertOne(ctx, kw)
+	http.HandleFunc("/put", func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
+		id, err := collection.InsertOne(ctx, database.NewKeywordDocument("Aaron", []string{"Barratt"}))
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+		}
+		log.Println(id)
+		writer.WriteHeader(http.StatusCreated)
+	})
+
+	http.HandleFunc("/teapot", func(writer http.ResponseWriter, request *http.Request) {
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+		}
+		writer.WriteHeader(http.StatusTeapot)
+	})
+
+	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
-		log.Printf("Failed to insert row: %s", kw)
+		log.Fatal("Error starting server")
 	}
-
-	rows := []*database.KeywordDocument{}
-	rows = append(rows, kw)
 }
